@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <?!= include('Gaya') ?>
+  <style>:root { --warna: <?= branding.warna_utama ?>; }</style>
+  <style>
+    .menu-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--garis); }
+    .menu-item:last-child { border-bottom: none; }
+    .menu-item .nama { font-weight: 600; }
+    .bilah-total { position: sticky; bottom: 0; background: var(--kartu); border-top: 1px solid var(--garis); padding: 12px 16px; margin: 0 -16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .bilah-total b { font-size: 18px; }
+  </style>
+</head>
+<body>
+  <header class="kop">
+    <div class="isi">
+      <? if (branding.logo_url) { ?><img src="<?= branding.logo_url ?>" alt=""><? } ?>
+      <div>
+        <h1><?= branding.nama_usaha ?></h1>
+        <small>Form pemesanan</small>
+      </div>
+    </div>
+  </header>
+
+  <main class="wadah">
+    <div id="memuat" class="memuat">Memuat menu...</div>
+
+    <div id="tutup" class="kartu tersembunyi">
+      <p>Form pesanan sedang ditutup.</p>
+      <p id="tutup-wa"></p>
+    </div>
+
+    <form id="form" class="tersembunyi" autocomplete="on" novalidate>
+      <h2>1. Pilih menu</h2>
+      <div id="daftar-menu"></div>
+
+      <h2>2. Data pemesan</h2>
+      <div class="kartu">
+        <label for="nama_pelanggan">Nama</label>
+        <input id="nama_pelanggan" name="nama_pelanggan" maxlength="100" required autocomplete="name">
+        <label for="no_hp">No. HP / WhatsApp</label>
+        <input id="no_hp" name="no_hp" type="tel" inputmode="tel" maxlength="20" placeholder="081234567890" required autocomplete="tel">
+        <label for="alamat">Alamat pengiriman</label>
+        <textarea id="alamat" name="alamat" maxlength="300" required autocomplete="street-address"></textarea>
+        <div class="baris">
+          <div>
+            <label for="tanggal_kirim">Tanggal kirim</label>
+            <input id="tanggal_kirim" name="tanggal_kirim" type="date" required>
+          </div>
+          <div>
+            <label for="jam_kirim">Jam kirim</label>
+            <input id="jam_kirim" name="jam_kirim" type="time" required>
+          </div>
+        </div>
+        <label for="catatan">Catatan (opsional)</label>
+        <textarea id="catatan" name="catatan" maxlength="500" placeholder="Misal: tanpa sambal, kirim ke lobi"></textarea>
+        <div class="jebakan" aria-hidden="true">
+          <label for="situs_web">Jangan diisi</label>
+          <input id="situs_web" name="situs_web" tabindex="-1" autocomplete="off">
+        </div>
+      </div>
+
+      <div id="galat" class="info galat tersembunyi" role="alert"></div>
+      <p class="redup" style="font-size:13px">Harga belum termasuk ongkos kirim. Pesanan akan dikonfirmasi oleh admin.</p>
+
+      <div class="bilah-total">
+        <div><span class="redup">Total</span><br><b id="total" class="angka">Rp0</b> <span id="porsi" class="redup"></span></div>
+        <button type="submit" id="kirim">Kirim pesanan</button>
+      </div>
+    </form>
+
+    <div id="sukses" class="kartu tersembunyi">
+      <h2 style="margin-top:0">Pesanan terkirim</h2>
+      <p id="sukses-pesan"></p>
+      <p>Nomor pesanan: <b id="sukses-nomor"></b><br>Total: <b id="sukses-total" class="angka"></b></p>
+      <div id="sukses-item"></div>
+      <p id="sukses-wa"></p>
+      <button type="button" class="sekunder" id="pesan-lagi">Buat pesanan lain</button>
+    </div>
+  </main>
+  <div id="toast" class="toast tersembunyi"></div>
+
+  <?!= include('Umum') ?>
+  <script>
+    var data = null;
+    var qty = {};
+
+    function render() {
+      var grup = {};
+      data.menu.forEach(function (m) { (grup[m.kategori || 'Menu'] = grup[m.kategori || 'Menu'] || []).push(m); });
+      $('#daftar-menu').innerHTML = Object.keys(grup).map(function (k) {
+        return '<div class="kartu"><h3 style="margin-top:0">' + esc(k) + '</h3>' + grup[k].map(function (m) {
+          return '<div class="menu-item"><div><div class="nama">' + esc(m.nama) + '</div>' +
+            '<div class="redup angka">' + rp(m.harga) + ' / porsi</div>' +
+            (m.catatan ? '<div class="redup" style="font-size:13px">' + esc(m.catatan) + '</div>' : '') + '</div>' +
+            '<div class="stepper"><button type="button" class="sekunder" data-kurang="' + m.id + '" aria-label="Kurangi">-</button>' +
+            '<input type="number" min="0" inputmode="numeric" value="0" data-qty="' + m.id + '" aria-label="Jumlah ' + esc(m.nama) + '">' +
+            '<button type="button" data-tambah="' + m.id + '" aria-label="Tambah">+</button></div></div>';
+        }).join('') + '</div>';
+      }).join('') || '<div class="kartu redup">Belum ada menu tersedia.</div>';
+      hitung();
+    }
+
+    function hitung() {
+      var total = 0, porsi = 0;
+      data.menu.forEach(function (m) { var q = qty[m.id] || 0; total += q * m.harga; porsi += q; });
+      $('#total').textContent = rp(total);
+      $('#porsi').textContent = porsi ? '(' + porsi + ' porsi)' : '';
+    }
+
+    function setQty(id, n) {
+      n = Math.max(0, Math.min(10000, parseInt(n, 10) || 0));
+      qty[id] = n;
+      var inp = $('[data-qty="' + id + '"]');
+      if (inp && String(inp.value) !== String(n)) inp.value = n;
+      hitung();
+    }
+
+    document.addEventListener('click', function (e) {
+      var t = e.target;
+      if (t.dataset.tambah) setQty(t.dataset.tambah, (qty[t.dataset.tambah] || 0) + 1);
+      if (t.dataset.kurang) setQty(t.dataset.kurang, (qty[t.dataset.kurang] || 0) - 1);
+    });
+    document.addEventListener('input', function (e) {
+      if (e.target.dataset.qty) setQty(e.target.dataset.qty, e.target.value);
+    });
+
+    $('#form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var galat = $('#galat');
+      galat.classList.add('tersembunyi');
+      var f = e.target;
+      var items = Object.keys(qty).filter(function (id) { return qty[id] > 0; })
+        .map(function (id) { return { menu_id: Number(id), qty: qty[id] }; });
+      if (!items.length) { tampilGalat('Pilih minimal satu menu.'); return; }
+      var isi = {
+        nama_pelanggan: f.nama_pelanggan.value, no_hp: f.no_hp.value, alamat: f.alamat.value,
+        tanggal_kirim: f.tanggal_kirim.value, jam_kirim: f.jam_kirim.value, catatan: f.catatan.value,
+        situs_web: f.situs_web.value, items: items,
+      };
+      var tombol = $('#kirim');
+      sibuk(tombol, true, 'Mengirim...');
+      panggil('publikKirimPesanan', isi).then(function (h) {
+        $('#form').classList.add('tersembunyi');
+        $('#sukses-pesan').textContent = h.pesan;
+        $('#sukses-nomor').textContent = h.nomor;
+        $('#sukses-total').textContent = rp(h.total);
+        $('#sukses-item').innerHTML = '<table>' + h.items.map(function (it) {
+          return '<tr><td>' + esc(it.nama_menu) + ' x' + it.qty + '</td><td class="kanan angka">' + rp(it.jumlah) + '</td></tr>';
+        }).join('') + '</table>';
+        $('#sukses-wa').innerHTML = h.link_wa
+          ? '<a class="tombol wa" target="_blank" rel="noopener" href="' + esc(h.link_wa) + '">Konfirmasi lewat WhatsApp</a>' : '';
+        $('#sukses').classList.remove('tersembunyi');
+        window.scrollTo(0, 0);
+      }).catch(function (err) {
+        tampilGalat(err.message);
+      }).then(function () { sibuk(tombol, false); });
+    });
+
+    function tampilGalat(teks) {
+      var g = $('#galat');
+      g.textContent = teks;
+      g.classList.remove('tersembunyi');
+      g.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    $('#pesan-lagi').addEventListener('click', function () {
+      qty = {};
+      $('#form').reset();
+      $('#tanggal_kirim').value = tambahHari(data.hari_ini, 1);
+      render();
+      $('#sukses').classList.add('tersembunyi');
+      $('#form').classList.remove('tersembunyi');
+    });
+
+    function muat() {
+      panggil('publikMuat').then(function (d) {
+        data = d;
+        $('#memuat').classList.add('tersembunyi');
+        if (!d.branding.form_publik_aktif) {
+          $('#tutup').classList.remove('tersembunyi');
+          if (d.branding.no_wa) {
+            var no = d.branding.no_wa.replace(/\D/g, '').replace(/^0/, '62');
+            $('#tutup-wa').innerHTML = '<a class="tombol wa" target="_blank" rel="noopener" href="https://wa.me/' + esc(no) + '">Hubungi lewat WhatsApp</a>';
+          }
+          return;
+        }
+        var besok = tambahHari(d.hari_ini, 1);
+        $('#tanggal_kirim').min = besok;
+        $('#tanggal_kirim').value = besok;
+        render();
+        $('#form').classList.remove('tersembunyi');
+      }).catch(function (err) {
+        $('#memuat').innerHTML = esc(err.message) + '<br><br><button type="button" onclick="muat()">Coba lagi</button>';
+      });
+    }
+    muat();
+  </script>
+</body>
+</html>

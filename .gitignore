@@ -22,3 +22,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Dapur Nusantara Lite (Apps Script)
+/lite/.clasp.json
+/lite/node_modules
