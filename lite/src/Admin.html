@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <?!= include('Gaya') ?>
+  <style>:root { --warna: <?= branding.warna_utama ?>; }</style>
+  <style>
+    nav.tab { position: sticky; top: 0; z-index: 10; background: var(--kartu); border-bottom: 1px solid var(--garis); }
+    nav.tab .isi { max-width: 880px; margin: 0 auto; display: flex; overflow-x: auto; }
+    nav.tab button { background: none; color: var(--redup); border: none; border-bottom: 3px solid transparent; border-radius: 0; padding: 12px 14px; flex: 0 0 auto; }
+    nav.tab button.aktif { color: var(--warna); border-bottom-color: var(--warna); }
+    .pesanan { cursor: pointer; }
+    .pesanan .atas { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .pesanan .detail { margin-top: 10px; border-top: 1px dashed var(--garis); padding-top: 10px; cursor: auto; }
+    .aksi { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .baris-item { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .baris-item select { flex: 1 1 auto; min-width: 0; }
+    .baris-item input { width: 84px; flex: 0 0 84px; }
+    .filter { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .filter .lebar { grid-column: 1 / -1; }
+    @media (min-width: 640px) { .filter { grid-template-columns: 160px 160px 1fr; } .filter .lebar { grid-column: auto; } }
+    .judul-cetak { display: none; }
+    @media print { .judul-cetak { display: block; } }
+  </style>
+</head>
+<body>
+  <header class="kop">
+    <div class="isi">
+      <? if (branding.logo_url) { ?><img src="<?= branding.logo_url ?>" alt=""><? } ?>
+      <div style="flex:1">
+        <h1><?= branding.nama_usaha ?></h1>
+        <small id="email-admin">Admin</small>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tab tersembunyi" id="nav">
+    <div class="isi">
+      <button type="button" data-tab="pesanan" class="aktif">Pesanan</button>
+      <button type="button" data-tab="form">+ Pesanan baru</button>
+      <button type="button" data-tab="rekap">Rekap harian</button>
+      <button type="button" data-tab="menu">Menu</button>
+      <button type="button" data-tab="pengaturan">Pengaturan</button>
+    </div>
+  </nav>
+
+  <main class="wadah">
+    <div id="memuat" class="memuat">Memuat...</div>
+    <div id="ditolak" class="kartu tersembunyi"></div>
+    <div id="upgrade" class="info netral tersembunyi tanpa-cetak"></div>
+
+    <!-- ========== Daftar pesanan ========== -->
+    <section id="tab-pesanan" class="tersembunyi">
+      <div class="kartu tanpa-cetak">
+        <div class="filter">
+          <div><label for="f-tanggal">Tanggal kirim</label><input type="date" id="f-tanggal"></div>
+          <div><label for="f-status">Status</label><select id="f-status"><option value="">Semua status</option></select></div>
+          <div class="lebar"><label for="f-cari">Cari nama / nomor / HP</label><input id="f-cari" type="search" placeholder="Ketik untuk mencari"></div>
+        </div>
+        <div class="aksi">
+          <button type="button" class="sekunder kecil" data-cepat="0">Hari ini</button>
+          <button type="button" class="sekunder kecil" data-cepat="1">Besok</button>
+          <button type="button" class="sekunder kecil" data-cepat="">Semua tanggal</button>
+        </div>
+      </div>
+      <p id="jumlah-pesanan" class="redup"></p>
+      <div id="daftar-pesanan"></div>
+    </section>
+
+    <!-- ========== Form pesanan ========== -->
+    <section id="tab-form" class="tersembunyi">
+      <h2 id="judul-form">Pesanan baru</h2>
+      <form id="form-pesanan" novalidate>
+        <div class="kartu">
+          <label for="p-nama">Nama pelanggan</label>
+          <input id="p-nama" name="nama_pelanggan" maxlength="100" required>
+          <div class="baris">
+            <div><label for="p-hp">No. HP</label><input id="p-hp" name="no_hp" type="tel" inputmode="tel" maxlength="20" placeholder="0812..." required></div>
+            <div><label for="p-tanggal">Tanggal kirim</label><input id="p-tanggal" name="tanggal_kirim" type="date" required></div>
+            <div><label for="p-jam">Jam kirim</label><input id="p-jam" name="jam_kirim" type="time"></div>
+          </div>
+          <label for="p-alamat">Alamat</label>
+          <textarea id="p-alamat" name="alamat" maxlength="300"></textarea>
+        </div>
+        <div class="kartu">
+          <h3 style="margin-top:0">Item menu</h3>
+          <div id="item-form"></div>
+          <button type="button" class="sekunder kecil" id="tambah-item">+ Tambah item</button>
+          <div class="baris" style="margin-top:6px">
+            <div><label for="p-diskon">Diskon (Rp)</label><input id="p-diskon" name="diskon" type="number" min="0" step="1000" value="0" inputmode="numeric"></div>
+            <div><label for="p-ongkir">Ongkir (Rp)</label><input id="p-ongkir" name="ongkir" type="number" min="0" step="1000" value="0" inputmode="numeric"></div>
+          </div>
+          <label for="p-catatan">Catatan</label>
+          <textarea id="p-catatan" name="catatan" maxlength="500"></textarea>
+          <div id="info-kapasitas"></div>
+          <label id="label-override" class="tersembunyi" style="font-weight:400">
+            <input type="checkbox" id="p-override" style="width:auto"> Override kapasitas (tercatat di Log)
+          </label>
+          <table style="margin-top:10px">
+            <tr><td>Subtotal</td><td class="kanan angka" id="r-subtotal">Rp0</td></tr>
+            <tr><td>Diskon</td><td class="kanan angka" id="r-diskon">Rp0</td></tr>
+            <tr><td>Ongkir</td><td class="kanan angka" id="r-ongkir">Rp0</td></tr>
+            <tr><th>Total</th><th class="kanan angka" id="r-total" style="font-size:16px;color:var(--teks)">Rp0</th></tr>
+          </table>
+        </div>
+        <div id="galat-form" class="info galat tersembunyi" role="alert"></div>
+        <div class="aksi">
+          <button type="submit" id="simpan-pesanan">Simpan pesanan</button>
+          <button type="button" class="sekunder" id="batal-edit">Batal</button>
+        </div>
+      </form>
+      <div id="hasil-simpan" class="kartu tersembunyi"></div>
+    </section>
+
+    <!-- ========== Rekap ========== -->
+    <section id="tab-rekap" class="tersembunyi">
+      <div class="kartu tanpa-cetak">
+        <div class="baris" style="align-items:flex-end">
+          <div><label for="r-tanggal">Tanggal kirim</label><input type="date" id="r-tanggal"></div>
+          <div style="flex:0 0 auto" class="aksi">
+            <button type="button" class="sekunder" id="r-segarkan">Tampilkan</button>
+            <button type="button" id="r-cetak">Cetak</button>
+          </div>
+        </div>
+      </div>
+      <div id="isi-rekap"></div>
+    </section>
+
+    <!-- ========== Menu ========== -->
+    <section id="tab-menu" class="tersembunyi">
+      <div class="kartu">
+        <h3 style="margin-top:0" id="judul-menu">Tambah menu</h3>
+        <form id="form-menu" novalidate>
+          <input type="hidden" name="menu_id">
+          <div class="baris">
+            <div><label for="m-kode">Kode</label><input id="m-kode" name="kode" maxlength="20" placeholder="NSK-01"></div>
+            <div><label for="m-kategori">Kategori</label><input id="m-kategori" name="kategori" maxlength="50" list="daftar-kategori"></div>
+          </div>
+          <label for="m-nama">Nama menu</label><input id="m-nama" name="nama" maxlength="100" required>
+          <div class="baris">
+            <div><label for="m-harga">Harga per porsi (Rp)</label><input id="m-harga" name="harga" type="number" min="0" step="500" inputmode="numeric" required></div>
+            <div><label for="m-aktif">Status</label><select id="m-aktif" name="aktif"><option value="1">Aktif</option><option value="">Nonaktif</option></select></div>
+          </div>
+          <label for="m-catatan">Catatan</label><input id="m-catatan" name="catatan" maxlength="200">
+          <datalist id="daftar-kategori"></datalist>
+          <div class="aksi">
+            <button type="submit" id="simpan-menu">Simpan menu</button>
+            <button type="button" class="sekunder" id="batal-menu">Batal</button>
+          </div>
+        </form>
+      </div>
+      <div class="kartu tabel-gulir"><table id="tabel-menu"></table></div>
+    </section>
+
+    <!-- ========== Pengaturan ========== -->
+    <section id="tab-pengaturan" class="tersembunyi">
+      <form id="form-atur" class="kartu" novalidate>
+        <label for="a-nama">Nama usaha</label><input id="a-nama" name="nama_usaha" maxlength="80">
+        <div class="baris">
+          <div><label for="a-wa">No. WhatsApp usaha</label><input id="a-wa" name="no_wa" type="tel" maxlength="20"></div>
+          <div><label for="a-kap">Kapasitas harian (porsi)</label><input id="a-kap" name="kapasitas_harian" type="number" min="0" inputmode="numeric"></div>
+        </div>
+        <label for="a-alamat">Alamat usaha</label><input id="a-alamat" name="alamat" maxlength="200">
+        <div class="baris">
+          <div><label for="a-logo">URL logo (https://...)</label><input id="a-logo" name="logo_url" type="url"></div>
+          <div><label for="a-warna">Warna utama</label><input id="a-warna" name="warna_utama" type="color" style="height:42px;padding:3px"></div>
+        </div>
+        <label for="a-terima">Pesan setelah pelanggan memesan</label><textarea id="a-terima" name="pesan_terima_kasih" maxlength="300"></textarea>
+        <label style="font-weight:400"><input type="checkbox" id="a-publik" name="form_publik_aktif" style="width:auto"> Form pesanan publik aktif</label>
+        <div class="aksi"><button type="submit" id="simpan-atur">Simpan pengaturan</button></div>
+      </form>
+      <div class="kartu">
+        <h3 style="margin-top:0">Info</h3>
+        <p><b>Admin terdaftar:</b> <span id="a-admin"></span><br><span class="redup">Ubah daftar admin di sheet Pengaturan, kunci <code>admin_emails</code>.</span></p>
+        <p><b>Link form pesanan (tombol "Pesan Sekarang"):</b><br><span id="a-url-publik" style="word-break:break-all"></span></p>
+      </div>
+    </section>
+  </main>
+  <div id="toast" class="toast tersembunyi"></div>
+
+  <?!= include('Umum') ?>
+  <script>
+    var S = { data: null, pesanan: [], terbuka: null, editId: null };
+
+    // ---------- Navigasi ----------
+    function bukaTab(nama) {
+      $$('nav.tab button').forEach(function (b) { b.classList.toggle('aktif', b.dataset.tab === nama); });
+      $$('main section').forEach(function (s) { s.classList.toggle('tersembunyi', s.id !== 'tab-' + nama); });
+      if (nama === 'pesanan') muatPesanan();
+      if (nama === 'rekap') muatRekap();
+      if (nama === 'form' && !S.editId && !$('#item-form').children.length) resetForm();
+      window.scrollTo(0, 0);
+    }
+    $$('nav.tab button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (b.dataset.tab === 'form') resetForm();
+        bukaTab(b.dataset.tab);
+      });
+    });
+
+    // ---------- Daftar pesanan ----------
+    var muatPesanan = debounce(function () {
+      var filter = { tanggal: $('#f-tanggal').value, status: $('#f-status').value, cari: $('#f-cari').value };
+      $('#daftar-pesanan').innerHTML = '<div class="memuat">Memuat pesanan...</div>';
+      panggil('adminDaftarPesanan', filter).then(function (h) {
+        S.pesanan = h.pesanan;
+        $('#jumlah-pesanan').textContent = h.total + ' pesanan' + (h.total > h.pesanan.length ? ' (menampilkan ' + h.pesanan.length + ')' : '');
+        renderPesanan();
+      }).catch(function (e) { $('#daftar-pesanan').innerHTML = '<div class="info galat">' + esc(e.message) + '</div>'; });
+    }, 250);
+
+    function lencanaBayar(s) { return '<span class="lencana ' + (s === 'Lunas' ? 'b-Lunas' : 'b-Belum') + '">' + esc(s) + '</span>'; }
+
+    function renderPesanan() {
+      if (!S.pesanan.length) { $('#daftar-pesanan').innerHTML = '<div class="kartu redup">Tidak ada pesanan.</div>'; return; }
+      $('#daftar-pesanan').innerHTML = S.pesanan.map(function (p) {
+        var buka = S.terbuka === p.id;
+        var html = '<div class="kartu pesanan" data-id="' + p.id + '"><div class="atas"><div>' +
+          '<b>' + esc(p.nama_pelanggan) + '</b> <span class="redup" style="font-size:13px">' + esc(p.nomor) + '</span><br>' +
+          '<span class="redup">' + tgl(p.tanggal_kirim) + (p.jam_kirim ? ' · ' + esc(p.jam_kirim) : '') + ' · ' + p.porsi + ' porsi</span></div>' +
+          '<div class="kanan"><b class="angka">' + rp(p.total) + '</b><br><span class="lencana s-' + esc(p.status) + '">' + esc(p.status) + '</span> ' +
+          lencanaBayar(p.status_bayar) + '</div></div>';
+        if (buka) {
+          html += '<div class="detail"><table>' + p.items.map(function (it) {
+            return '<tr><td>' + esc(it.nama_menu) + '</td><td class="angka">x' + it.qty + '</td><td class="kanan angka">' + rp(it.jumlah) + '</td></tr>';
+          }).join('') +
+          (p.diskon ? '<tr><td colspan="2">Diskon</td><td class="kanan angka">-' + rp(p.diskon) + '</td></tr>' : '') +
+          (p.ongkir ? '<tr><td colspan="2">Ongkir</td><td class="kanan angka">' + rp(p.ongkir) + '</td></tr>' : '') +
+          '</table>' +
+          '<p>HP: ' + esc(p.no_hp) + '<br>Alamat: ' + esc(p.alamat || '-') + (p.catatan ? '<br>Catatan: ' + esc(p.catatan) : '') +
+          '<br><span class="redup" style="font-size:13px">Dibuat oleh ' + esc(p.dibuat_oleh) + ' · ' + esc(p.dibuat_pada) +
+          (p.override_kapasitas ? ' · override kapasitas' : '') + '</span></p>' +
+          '<div class="aksi">' +
+          p.status_berikut.map(function (s) {
+            return '<button type="button" class="kecil' + (s === 'Dibatalkan' ? ' bahaya' : '') + '" data-status="' + esc(s) + '" data-id="' + p.id + '">' +
+              (s === 'Dibatalkan' ? 'Batalkan' : 'Jadikan ' + esc(s)) + '</button>';
+          }).join('') +
+          '<button type="button" class="kecil sekunder" data-bayar="' + (p.status_bayar === 'Lunas' ? 'Belum Bayar' : 'Lunas') + '" data-id="' + p.id + '">' +
+            (p.status_bayar === 'Lunas' ? 'Tandai belum bayar' : 'Tandai lunas') + '</button>' +
+          (p.link_wa ? '<a class="tombol kecil wa" target="_blank" rel="noopener" href="' + esc(p.link_wa) + '">Kirim ke WhatsApp</a>' : '') +
+          (p.bisa_edit ? '<button type="button" class="kecil sekunder" data-edit="' + p.id + '">Ubah</button>' : '') +
+          '</div></div>';
+        }
+        return html + '</div>';
+      }).join('');
+    }
+
+    $('#daftar-pesanan').addEventListener('click', function (e) {
+      var t = e.target;
+      if (t.dataset.status) {
+        if (t.dataset.status === 'Dibatalkan' && !confirmBatal(t)) return;
+        sibuk(t, true);
+        panggil('adminUbahStatus', Number(t.dataset.id), t.dataset.status).then(function () {
+          toast('Status diperbarui.'); muatPesanan();
+        }).catch(function (err) { sibuk(t, false); toast(err.message); });
+        return;
+      }
+      if (t.dataset.bayar) {
+        sibuk(t, true);
+        panggil('adminUbahStatusBayar', Number(t.dataset.id), t.dataset.bayar).then(function () {
+          toast('Status bayar diperbarui.'); muatPesanan();
+        }).catch(function (err) { sibuk(t, false); toast(err.message); });
+        return;
+      }
+      if (t.dataset.edit) { editPesanan(Number(t.dataset.edit)); return; }
+      if (t.closest('.detail') || t.closest('a')) return;
+      var kartu = t.closest('.pesanan');
+      if (kartu) { var id = Number(kartu.dataset.id); S.terbuka = S.terbuka === id ? null : id; renderPesanan(); }
+    });
+
+    /** Konfirmasi dua langkah tanpa dialog browser (dialog bisa diblokir di dalam iframe). */
+    function confirmBatal(t) {
+      if (t.dataset.yakin) return true;
+      t.dataset.yakin = '1';
+      t.textContent = 'Yakin batalkan? Klik lagi';
+      setTimeout(function () { delete t.dataset.yakin; t.textContent = 'Batalkan'; }, 4000);
+      return false;
+    }
+
+    ['#f-tanggal', '#f-status'].forEach(function (s) { $(s).addEventListener('change', muatPesanan); });
+    $('#f-cari').addEventListener('input', muatPesanan);
+    $$('[data-cepat]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        $('#f-tanggal').value = b.dataset.cepat === '' ? '' : tambahHari(S.data.hari_ini, Number(b.dataset.cepat));
+        muatPesanan();
+      });
+    });
+
+    // ---------- Form pesanan ----------
+    function opsiMenu(terpilih, tambahan) {
+      return '<option value="">Pilih menu</option>' + S.data.menu.filter(function (m) {
+        return m.aktif || String(m.id) === String(terpilih) || (tambahan && tambahan[m.id]);
+      }).map(function (m) {
+        return '<option value="' + m.id + '"' + (String(m.id) === String(terpilih) ? ' selected' : '') + '>' +
+          esc(m.nama) + ' · ' + rp(m.harga) + (m.aktif ? '' : ' (nonaktif)') + '</option>';
+      }).join('');
+    }
+
+    function tambahBarisItem(menuId, qty) {
+      var div = document.createElement('div');
+      div.className = 'baris-item';
+      div.innerHTML = '<select aria-label="Menu">' + opsiMenu(menuId) + '</select>' +
+        '<input type="number" min="1" inputmode="numeric" aria-label="Porsi" placeholder="Porsi" value="' + (qty || '') + '">' +
+        '<button type="button" class="kecil bahaya" aria-label="Hapus item">✕</button>';
+      $('#item-form').appendChild(div);
+    }
+
+    $('#tambah-item').addEventListener('click', function () { tambahBarisItem(); });
+    $('#item-form').addEventListener('click', function (e) {
+      if (e.target.tagName === 'BUTTON') { e.target.closest('.baris-item').remove(); hitungForm(); }
+    });
+    $('#form-pesanan').addEventListener('input', function () { hitungForm(); });
+    $('#form-pesanan').addEventListener('change', function () { hitungForm(); });
+
+    function ambilItem() {
+      return $$('#item-form .baris-item').map(function (r) {
+        return { menu_id: Number($('select', r).value), qty: parseInt($('input', r).value, 10) || 0 };
+      }).filter(function (it) { return it.menu_id && it.qty > 0; });
+    }
+
+    function hitungForm() {
+      var harga = {};
+      S.data.menu.forEach(function (m) { harga[m.id] = m.harga; });
+      var sub = 0, porsi = 0;
+      ambilItem().forEach(function (it) { sub += (harga[it.menu_id] || 0) * it.qty; porsi += it.qty; });
+      var d = Number($('#p-diskon').value) || 0, o = Number($('#p-ongkir').value) || 0;
+      $('#r-subtotal').textContent = rp(sub);
+      $('#r-diskon').textContent = '-' + rp(d);
+      $('#r-ongkir').textContent = rp(o);
+      $('#r-total').textContent = rp(sub - d + o);
+      cekKapasitas($('#p-tanggal').value, porsi);
+    }
+
+    var kunciKap = '';
+    var cekKapasitas = debounce(function (tanggal, porsi) {
+      var k = tanggal + '|' + porsi + '|' + S.editId;
+      if (!tanggal || k === kunciKap) return;
+      kunciKap = k;
+      panggil('adminCekKapasitas', tanggal, porsi, S.editId).then(function (h) {
+        var el = $('#info-kapasitas');
+        if (!h || !h.kapasitas) { el.innerHTML = ''; $('#label-override').classList.add('tersembunyi'); return; }
+        var teks = 'Kapasitas ' + tgl(tanggal) + ': ' + h.total + ' dari ' + h.kapasitas + ' porsi (' + h.persen + '%).';
+        if (h.level === 'peringatan') teks += ' Hampir penuh.';
+        if (h.level === 'penuh') teks += ' Melebihi kapasitas.';
+        el.innerHTML = '<div class="info ' + h.level + '">' + esc(teks) + '</div>';
+        $('#label-override').classList.toggle('tersembunyi', !h.melebihi);
+      }).catch(function () { kunciKap = ''; });
+    }, 400);
+
+    function resetForm() {
+      S.editId = null;
+      kunciKap = '';
+      $('#form-pesanan').reset();
+      $('#judul-form').textContent = 'Pesanan baru';
+      $('#item-form').innerHTML = '';
+      tambahBarisItem();
+      $('#p-tanggal').value = tambahHari(S.data.hari_ini, 1);
+      $('#galat-form').classList.add('tersembunyi');
+      $('#hasil-simpan').classList.add('tersembunyi');
+      $('#form-pesanan').classList.remove('tersembunyi');
+      $('#label-override').classList.add('tersembunyi');
+      $('#info-kapasitas').innerHTML = '';
+      hitungForm();
+    }
+
+    function editPesanan(id) {
+      var p = S.pesanan.filter(function (x) { return x.id === id; })[0];
+      if (!p) return;
+      resetForm();
+      S.editId = id;
+      $('#judul-form').textContent = 'Ubah pesanan ' + p.nomor;
+      var f = $('#form-pesanan');
+      f.nama_pelanggan.value = p.nama_pelanggan; f.no_hp.value = p.no_hp; f.alamat.value = p.alamat;
+      f.tanggal_kirim.value = p.tanggal_kirim; f.jam_kirim.value = p.jam_kirim; f.catatan.value = p.catatan;
+      f.diskon.value = p.diskon; f.ongkir.value = p.ongkir;
+      $('#p-override').checked = p.override_kapasitas;
+      $('#item-form').innerHTML = '';
+      p.items.forEach(function (it) { tambahBarisItem(it.menu_id, it.qty); });
+      bukaTab('form');
+      hitungForm();
+    }
+
+    $('#batal-edit').addEventListener('click', function () { resetForm(); bukaTab('pesanan'); });
+
+    $('#form-pesanan').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = e.target;
+      var isi = {
+        id: S.editId, nama_pelanggan: f.nama_pelanggan.value, no_hp: f.no_hp.value, alamat: f.alamat.value,
+        tanggal_kirim: f.tanggal_kirim.value, jam_kirim: f.jam_kirim.value, catatan: f.catatan.value,
+        diskon: f.diskon.value, ongkir: f.ongkir.value, override_kapasitas: $('#p-override').checked, items: ambilItem(),
+      };
+      var tombol = $('#simpan-pesanan');
+      $('#galat-form').classList.add('tersembunyi');
+      sibuk(tombol, true, 'Menyimpan...');
+      panggil('adminSimpanPesanan', isi).then(function (h) {
+        var wa = h.pesanan.no_hp ? 'https://wa.me/' + h.pesanan.no_hp.replace(/\D/g, '').replace(/^0/, '62') +
+          '?text=' + encodeURIComponent(h.pesan_wa) : '';
+        $('#form-pesanan').classList.add('tersembunyi');
+        var el = $('#hasil-simpan');
+        el.innerHTML = '<h3 style="margin-top:0">Pesanan ' + esc(h.pesanan.nomor) + ' tersimpan</h3>' +
+          '<p>' + esc(h.pesanan.nama_pelanggan) + ' · ' + tgl(h.pesanan.tanggal_kirim) + ' · <b>' + rp(h.pesanan.total) + '</b></p>' +
+          (h.kapasitas.level !== 'aman' ? '<div class="info ' + h.kapasitas.level + '">Kapasitas tanggal ini: ' + h.kapasitas.total + ' dari ' + h.kapasitas.kapasitas + ' porsi.</div>' : '') +
+          '<div class="aksi">' + (wa ? '<a class="tombol wa" target="_blank" rel="noopener" href="' + esc(wa) + '">Kirim ke WhatsApp pelanggan</a>' : '') +
+          '<button type="button" class="sekunder" id="lagi">Buat pesanan lain</button>' +
+          '<button type="button" class="sekunder" id="ke-daftar">Lihat daftar</button></div>';
+        el.classList.remove('tersembunyi');
+        $('#lagi').onclick = function () { resetForm(); };
+        $('#ke-daftar').onclick = function () { bukaTab('pesanan'); };
+        S.editId = null;
+      }).catch(function (err) {
+        $('#galat-form').textContent = err.message;
+        $('#galat-form').classList.remove('tersembunyi');
+      }).then(function () { sibuk(tombol, false); });
+    });
+
+    // ---------- Rekap ----------
+    function muatRekap() {
+      var t = $('#r-tanggal').value || S.data.hari_ini;
+      $('#r-tanggal').value = t;
+      $('#isi-rekap').innerHTML = '<div class="memuat">Menghitung rekap...</div>';
+      panggil('adminRekap', t).then(function (r) {
+        var k = r.kapasitas;
+        $('#isi-rekap').innerHTML =
+          '<h2 class="judul-cetak">' + esc(S.data.branding.nama_usaha) + ' · Rekap ' + tgl(r.tanggal) + '</h2>' +
+          '<div class="ringkas">' +
+            '<div class="kartu"><span class="redup">Pesanan aktif</span><b>' + r.jumlah_pesanan + '</b></div>' +
+            '<div class="kartu"><span class="redup">Total porsi</span><b>' + r.total_porsi + (k.kapasitas ? ' <small class="redup" style="font-size:13px;display:inline">/ ' + k.kapasitas + '</small>' : '') + '</b></div>' +
+            '<div class="kartu"><span class="redup">Total nilai</span><b class="angka">' + rp(r.total_nilai) + '</b></div>' +
+            '<div class="kartu"><span class="redup">Lunas / belum bayar</span><b class="angka" style="font-size:15px">' + rp(r.total_lunas) + '<br>' + rp(r.total_belum_bayar) + '</b></div>' +
+          '</div>' +
+          (k.kapasitas && k.level !== 'aman' ? '<div class="info ' + k.level + '">Kapasitas terpakai ' + k.persen + '%.</div>' : '') +
+          '<div class="kartu"><h3 style="margin-top:0">Daftar produksi dapur</h3>' +
+          (r.produksi.length ? '<table><tr><th>Menu</th><th class="kanan">Porsi</th></tr>' + r.produksi.map(function (x) {
+            return '<tr><td>' + esc(x.nama_menu) + '</td><td class="kanan angka"><b>' + x.porsi + '</b></td></tr>';
+          }).join('') + '</table>' : '<p class="redup">Belum ada pesanan.</p>') + '</div>' +
+          '<div class="kartu tabel-gulir"><h3 style="margin-top:0">Daftar pengiriman</h3>' +
+          (r.pengiriman.length ? '<table><tr><th>Jam</th><th>Pelanggan</th><th>Alamat</th><th>Status</th></tr>' + r.pengiriman.map(function (x) {
+            return '<tr><td class="angka">' + esc(x.jam_kirim || '-') + '</td><td><b>' + esc(x.nama_pelanggan) + '</b><br><span class="redup">' + esc(x.no_hp) + '<br>' + esc(x.nomor) + '</span></td>' +
+              '<td>' + esc(x.alamat) + '</td><td>' + esc(x.status) + '<br>' + esc(x.status_bayar) + '<br><span class="angka">' + rp(x.total) + '</span></td></tr>';
+          }).join('') + '</table>' : '<p class="redup">Belum ada pengiriman.</p>') + '</div>';
+      }).catch(function (e) { $('#isi-rekap').innerHTML = '<div class="info galat">' + esc(e.message) + '</div>'; });
+    }
+    $('#r-segarkan').addEventListener('click', muatRekap);
+    $('#r-tanggal').addEventListener('change', muatRekap);
+    $('#r-cetak').addEventListener('click', function () { window.print(); });
+
+    // ---------- Menu ----------
+    function renderMenu() {
+      var kat = {};
+      S.data.menu.forEach(function (m) { if (m.kategori) kat[m.kategori] = 1; });
+      $('#daftar-kategori').innerHTML = Object.keys(kat).map(function (k) { return '<option value="' + esc(k) + '">'; }).join('');
+      $('#tabel-menu').innerHTML = '<tr><th>Menu</th><th>Kategori</th><th class="kanan">Harga</th><th>Status</th><th></th></tr>' +
+        S.data.menu.map(function (m) {
+          return '<tr><td><b>' + esc(m.nama) + '</b><br><span class="redup">' + esc(m.kode) + '</span></td><td>' + esc(m.kategori) + '</td>' +
+            '<td class="kanan angka">' + rp(m.harga) + '</td><td>' + (m.aktif ? '<span class="lencana b-Lunas">Aktif</span>' : '<span class="lencana">Nonaktif</span>') + '</td>' +
+            '<td><button type="button" class="kecil sekunder" data-ubah-menu="' + m.id + '">Ubah</button></td></tr>';
+        }).join('');
+    }
+    $('#tabel-menu').addEventListener('click', function (e) {
+      var id = e.target.dataset.ubahMenu;
+      if (!id) return;
+      var m = S.data.menu.filter(function (x) { return String(x.id) === id; })[0];
+      var f = $('#form-menu');
+      f.menu_id.value = m.id; f.kode.value = m.kode; f.nama.value = m.nama; f.kategori.value = m.kategori;
+      f.harga.value = m.harga; f.aktif.value = m.aktif ? '1' : ''; f.catatan.value = m.catatan;
+      $('#judul-menu').textContent = 'Ubah menu';
+      window.scrollTo(0, 0);
+    });
+    $('#batal-menu').addEventListener('click', function () { $('#form-menu').reset(); $('#form-menu').menu_id.value = ''; $('#judul-menu').textContent = 'Tambah menu'; });
+    $('#form-menu').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = e.target;
+      var tombol = $('#simpan-menu');
+      sibuk(tombol, true, 'Menyimpan...');
+      panggil('adminSimpanMenu', {
+        id: f.menu_id.value ? Number(f.menu_id.value) : null, kode: f.kode.value, nama: f.nama.value, kategori: f.kategori.value,
+        harga: f.harga.value, aktif: !!f.aktif.value, catatan: f.catatan.value,
+      }).then(function (menu) {
+        S.data.menu = menu;
+        renderMenu();
+        f.reset(); f.menu_id.value = '';
+        $('#judul-menu').textContent = 'Tambah menu';
+        toast('Menu tersimpan.');
+      }).catch(function (err) { toast(err.message); }).then(function () { sibuk(tombol, false); });
+    });
+
+    // ---------- Pengaturan ----------
+    function renderPengaturan() {
+      var p = S.data.pengaturan, f = $('#form-atur');
+      f.nama_usaha.value = p.nama_usaha; f.no_wa.value = p.no_wa; f.kapasitas_harian.value = p.kapasitas_harian;
+      f.alamat.value = p.alamat; f.logo_url.value = p.logo_url; f.warna_utama.value = p.warna_utama;
+      f.pesan_terima_kasih.value = p.pesan_terima_kasih; $('#a-publik').checked = p.form_publik_aktif;
+      $('#a-admin').textContent = p.admin_emails || '-';
+      $('#a-url-publik').textContent = S.data.url_publik || 'Belum diisi. Isi kunci url_publik di sheet Pengaturan setelah deploy.';
+    }
+    $('#form-atur').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = e.target, tombol = $('#simpan-atur');
+      sibuk(tombol, true, 'Menyimpan...');
+      panggil('adminSimpanPengaturan', {
+        nama_usaha: f.nama_usaha.value, no_wa: f.no_wa.value, alamat: f.alamat.value, kapasitas_harian: f.kapasitas_harian.value,
+        logo_url: f.logo_url.value, warna_utama: f.warna_utama.value, pesan_terima_kasih: f.pesan_terima_kasih.value,
+        form_publik_aktif: $('#a-publik').checked,
+      }).then(function (d) {
+        S.data = d;
+        renderPengaturan();
+        document.documentElement.style.setProperty('--warna', d.branding.warna_utama);
+        toast('Pengaturan tersimpan. Muat ulang halaman untuk melihat nama/logo baru.');
+      }).catch(function (err) { toast(err.message); }).then(function () { sibuk(tombol, false); });
+    });
+
+    // ---------- Mulai ----------
+    function mulai() {
+      panggil('adminMuat').then(function (d) {
+        $('#memuat').classList.add('tersembunyi');
+        if (!d.akses) {
+          var el = $('#ditolak');
+          el.innerHTML = '<h2 style="margin-top:0">Akses admin ditolak</h2>' +
+            (d.email
+              ? '<p>Akun <b>' + esc(d.email) + '</b> belum terdaftar sebagai admin. Minta pemilik usaha menambahkan email Anda di sheet Pengaturan (admin_emails).</p>'
+              : '<p>Email akun Google Anda tidak terbaca. Pastikan Anda membuka <b>link Admin</b> (bukan link form pesanan) dan sudah login dengan akun Google.</p>');
+          el.classList.remove('tersembunyi');
+          return;
+        }
+        S.data = d;
+        $('#email-admin').textContent = 'Admin · ' + d.email;
+        $('#f-status').innerHTML += d.status.map(function (s) { return '<option>' + esc(s) + '</option>'; }).join('');
+        if (d.upgrade.alasan.length) {
+          $('#upgrade').innerHTML = esc(d.upgrade.alasan.join(' ')) + ' Versi lengkap Dapur Nusantara mendukung volume lebih besar, invoice, kurir, dan multi-pengguna.' +
+            (d.upgrade.url ? ' <a target="_blank" rel="noopener" href="' + esc(d.upgrade.url) + '">Lihat info</a>' : '');
+          $('#upgrade').classList.remove('tersembunyi');
+        }
+        $('#f-tanggal').value = d.hari_ini;
+        $('#nav').classList.remove('tersembunyi');
+        renderMenu();
+        renderPengaturan();
+        bukaTab('pesanan');
+      }).catch(function (e) {
+        $('#memuat').innerHTML = esc(e.message) + '<br><br><button type="button" onclick="mulai()">Coba lagi</button>';
+      });
+    }
+    mulai();
+  </script>
+</body>
+</html>

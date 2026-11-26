@@ -7,6 +7,12 @@ Repositori ini berisi kerangka **Tahap 0**: instalasi framework, autentikasi
 dasar (login, registrasi, lupa password, verifikasi email, pengaturan profil),
 peran pengguna `admin` dan `staff`, serta struktur folder untuk modul berikutnya.
 
+## Dapur Nusantara Lite
+
+Folder [`lite/`](lite/README.md) berisi edisi ringan berbasis Google Apps Script +
+Google Sheets (tanpa hosting), dipasang sebagai bonus paket website company profile
+dan menjadi jalur upgrade ke versi Laravel ini. Lihat [lite/README.md](lite/README.md).
+
 ## Prasyarat
 
 | Perangkat | Versi minimum |

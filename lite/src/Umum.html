@@ -1,0 +1,74 @@
+<script>
+  /** Panggil fungsi server Apps Script sebagai Promise. */
+  function panggil(nama) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var r = google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (err) {
+          var pesan = String((err && err.message) || err || 'Terjadi kesalahan.')
+            .replace(/^(Error|Exception|ScriptError):\s*/i, '');
+          if (/NetworkError|Failed to fetch|timed out|Too many/i.test(pesan)) {
+            pesan = 'Koneksi sedang bermasalah atau server sibuk. Silakan coba lagi.';
+          }
+          reject(new Error(pesan));
+        });
+      r[nama].apply(r, args);
+    });
+  }
+
+  function rp(n) {
+    var x = Math.round(Number(n) || 0);
+    return (x < 0 ? '-Rp' : 'Rp') + String(Math.abs(x)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  function tgl(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    return m ? m[3] + '/' + m[2] + '/' + m[1] : String(iso || '');
+  }
+
+  function tambahHari(iso, n) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + n)).toISOString().slice(0, 10);
+  }
+
+  function esc(s) {
+    return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function $(sel, akar) { return (akar || document).querySelector(sel); }
+  function $$(sel, akar) { return Array.prototype.slice.call((akar || document).querySelectorAll(sel)); }
+
+  var timerToast;
+  function toast(teks) {
+    var el = $('#toast');
+    el.textContent = teks;
+    el.classList.remove('tersembunyi');
+    clearTimeout(timerToast);
+    timerToast = setTimeout(function () { el.classList.add('tersembunyi'); }, 3500);
+  }
+
+  /** Nonaktifkan tombol selama proses berjalan. */
+  function sibuk(tombol, aktif, teks) {
+    if (!tombol) return;
+    if (aktif) {
+      tombol.dataset.teks = tombol.textContent;
+      tombol.textContent = teks || 'Memproses...';
+      tombol.disabled = true;
+    } else {
+      tombol.textContent = tombol.dataset.teks || tombol.textContent;
+      tombol.disabled = false;
+    }
+  }
+
+  function debounce(fn, ms) {
+    var t;
+    return function () {
+      var a = arguments, self = this;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(self, a); }, ms);
+    };
+  }
+</script>
